@@ -160,3 +160,12 @@ ON CONFLICT DO NOTHING;
 
 -- INSERT INTO public.users (id, nim, name, role) VALUES
 --   ('<UUID_DARI_AUTH_USER>', 'admin001', 'Administrator Kampus', 'admin');
+
+-- =============================================
+-- PERFORMANCE INDEXES
+-- =============================================
+CREATE INDEX IF NOT EXISTS idx_registrations_user_id ON public.registrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_program_id ON public.registrations(program_id);
+CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
+
+

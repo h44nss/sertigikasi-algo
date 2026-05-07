@@ -47,7 +47,9 @@ const MyRegistrations: React.FC = () => {
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (registrations.length === 0) {
+      setLoading(true)
+    }
     
     try {
       const { data, error } = await supabase

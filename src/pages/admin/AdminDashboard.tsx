@@ -25,7 +25,9 @@ const AdminDashboard: React.FC = () => {
   }, [])
 
   const fetchDashboardData = async () => {
-    setLoading(true)
+    if (!stats) {
+      setLoading(true)
+    }
 
     const [
       { count: totalPrograms },

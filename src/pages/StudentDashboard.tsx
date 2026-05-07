@@ -54,7 +54,10 @@ const StudentDashboard: React.FC = () => {
       setLoading(false)
       return
     }
-    setLoading(true)
+    // Only show skeleton on initial load or if data is empty to prevent "loading flicker"
+    if (programs.length === 0) {
+      setLoading(true)
+    }
 
     try {
       const [{ data: programsData, error: progErr }, { data: regsData, error: regErr }] = await Promise.all([

@@ -39,7 +39,9 @@ const ProgramsPage: React.FC = () => {
   }, [])
 
   const fetchPrograms = async () => {
-    setLoading(true)
+    if (programs.length === 0) {
+      setLoading(true)
+    }
     const { data, error } = await supabase
       .from('programs')
       .select('*')

@@ -47,7 +47,9 @@ const RegistrationsPage: React.FC = () => {
   }, [registrations, search, statusFilter])
 
   const fetchRegistrations = async () => {
-    setLoading(true)
+    if (registrations.length === 0) {
+      setLoading(true)
+    }
     const { data, error } = await supabase
       .from('registrations')
       .select('*, program:programs(*), user:users(name, nim, id)')
