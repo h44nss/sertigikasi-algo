@@ -14,7 +14,7 @@ const programSchema = z.object({
   description: z.string().min(10, 'Deskripsi minimal 10 karakter'),
   date: z.string().min(1, 'Tanggal wajib diisi'),
   venue: z.string().min(3, 'Tempat minimal 3 karakter'),
-  price: z.coerce.number().min(0, 'Harga tidak boleh negatif'),
+  price: z.number({ error: 'Harga harus berupa angka' }).min(0, 'Harga tidak boleh negatif'),
 })
 
 type ProgramForm = z.infer<typeof programSchema>
@@ -32,7 +32,7 @@ const ProgramsPage: React.FC = () => {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<ProgramForm>({ resolver: zodResolver(programSchema) })
+  } = useForm<ProgramForm, unknown, ProgramForm>({ resolver: zodResolver(programSchema) })
 
   useEffect(() => {
     fetchPrograms()
@@ -282,7 +282,7 @@ const ProgramsPage: React.FC = () => {
                     type="number"
                     placeholder="Contoh: 150000 (0 jika Gratis)"
                     className="input-field"
-                    {...register('price')}
+                    {...register('price', { valueAsNumber: true })}
                   />
                   {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
                 </div>

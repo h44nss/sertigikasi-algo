@@ -19,18 +19,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (error) {
-      console.error('Error fetching profile:', error)
-    }
+      if (error) {
+        console.error('Error fetching profile:', error)
+        return
+      }
 
-    if (!error && data) {
-      setProfile(data as UserProfile)
+      if (data) {
+        setProfile(data as UserProfile)
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching profile:', err)
     }
   }
 
@@ -43,26 +48,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true
 
-    // Listen for auth changes. Supabase v2 fires INITIAL_SESSION automatically.
+    // FIX: Safety-net timeout — if Supabase never fires any event, stop loading after 10s
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false)
+    }, 10000)
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_OUT') {
-          setUser(null)
-          setProfile(null)
-        } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          setUser(session?.user ?? null)
-          if (session?.user) {
-            await fetchProfile(session.user.id)
+        if (!mounted) return
+
+        try {
+          if (event === 'SIGNED_OUT') {
+            setUser(null)
+            setProfile(null)
+          } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            setUser(session?.user ?? null)
+            if (session?.user) {
+              await fetchProfile(session.user.id)
+            } else {
+              setProfile(null)
+            }
+          } else if (event === 'TOKEN_REFRESHED') {
+            // FIX: Only update the user token — do NOT re-fetch profile here.
+            // Re-fetching profile on TOKEN_REFRESHED causes a reload loop because
+            // the new supabase client fires TOKEN_REFRESHED on every navigation.
+            setUser(session?.user ?? null)
+          }
+        } catch (err) {
+          console.error('AuthContext error during event', event, err)
+        } finally {
+          // FIX: loading=false is now GUARANTEED to fire regardless of errors
+          if (mounted) {
+            clearTimeout(timeout)
+            setLoading(false)
           }
         }
-        // We explicitly ignore setting state on TOKEN_REFRESHED to prevent infinite loops 
-        // if the system clock is out of sync, BUT we must always clear the loading state.
-        if (mounted) setLoading(false)
       }
     )
 
     return () => {
       mounted = false
+      clearTimeout(timeout)
       subscription.unsubscribe()
     }
   }, [])

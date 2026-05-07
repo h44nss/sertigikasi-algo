@@ -23,7 +23,14 @@ import ExportPage from './pages/admin/ExportPage'
 const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, profile, loading } = useAuth()
 
-  if (loading) return null
+  // FIX: Show spinner instead of null to avoid white flash during init
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   if (user && profile) {
     if (profile.role === 'admin') return <Navigate to="/admin" replace />

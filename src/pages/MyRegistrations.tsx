@@ -22,9 +22,12 @@ const MyRegistrations: React.FC = () => {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
+  // FIX: Use profile?.id (stable string) instead of profile (object reference).
+  // Using the object causes re-fetch on every AuthContext re-render (e.g. TOKEN_REFRESHED).
   useEffect(() => {
     fetchRegistrations()
-  }, [profile])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id])
 
   useEffect(() => {
     let result = registrations

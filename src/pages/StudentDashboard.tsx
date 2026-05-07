@@ -30,9 +30,12 @@ const StudentDashboard: React.FC = () => {
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
   const [processingPayment, setProcessingPayment] = useState(false)
 
+  // FIX: Use profile?.id (stable string) instead of profile (object reference).
+  // Using the object causes re-fetch on every AuthContext re-render (e.g. TOKEN_REFRESHED).
   useEffect(() => {
     fetchData()
-  }, [profile])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id])
 
   useEffect(() => {
     // Handle redirect from landing page for a specific program
