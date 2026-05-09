@@ -105,4 +105,4 @@ const AdminSidebar: React.FC = () => {
   )
 }
 
-export default AdminSidebar
+export default React.memo(AdminSidebar)

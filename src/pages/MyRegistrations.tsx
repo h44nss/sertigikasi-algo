@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   GraduationCap,
   Download,
@@ -14,42 +14,68 @@ import Navbar from '../components/Navbar'
 import StatusBadge from '../components/StatusBadge'
 import toast from 'react-hot-toast'
 
+// Externalized helpers
+const formatDate = (dateStr: string) =>
+  new Date(dateStr).toLocaleDateString('id-ID', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+
+// Memoized Table Row for better performance with many registrations
+const RegistrationRow = React.memo(({ reg, onDownload }: { reg: Registration, onDownload: (reg: Registration) => void }) => (
+  <tr className="hover:bg-gray-50 transition-colors group">
+    <td className="px-6 py-4">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+          <GraduationCap className="w-5 h-5 text-blue-600" />
+        </div>
+        <div>
+          <p className="font-medium text-gray-900 text-sm">{reg.program?.title}</p>
+          <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+            <Calendar className="w-3 h-3" />
+            {reg.program?.date ? formatDate(reg.program.date) : '-'}
+          </p>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4 text-sm text-gray-500">
+      {formatDate(reg.created_at)}
+    </td>
+    <td className="px-6 py-4">
+      <StatusBadge status={reg.status} />
+    </td>
+    <td className="px-6 py-4">
+      {reg.status === 'approved' && reg.certificate_url ? (
+        <button
+          onClick={() => onDownload(reg)}
+          className="btn-primary text-xs px-3 py-1.5 shadow-sm hover:shadow-md active:scale-95 transition-all"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Download
+        </button>
+      ) : reg.status === 'approved' ? (
+        <span className="text-xs text-gray-400 italic">Belum diupload</span>
+      ) : (
+        <button disabled className="btn-primary text-xs px-3 py-1.5 opacity-30 cursor-not-allowed grayscale">
+          <Download className="w-3.5 h-3.5" />
+          Download
+        </button>
+      )}
+    </td>
+  </tr>
+))
+RegistrationRow.displayName = 'RegistrationRow'
+
 const MyRegistrations: React.FC = () => {
   const { profile } = useAuth()
   const [registrations, setRegistrations] = useState<Registration[]>([])
-  const [filtered, setFiltered] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  // FIX: Use profile?.id (stable string) instead of profile (object reference).
-  // Using the object causes re-fetch on every AuthContext re-render (e.g. TOKEN_REFRESHED).
-  useEffect(() => {
-    fetchRegistrations()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id])
-
-  useEffect(() => {
-    let result = registrations
-    if (search) {
-      result = result.filter((r) =>
-        r.program?.title.toLowerCase().includes(search.toLowerCase())
-      )
-    }
-    if (statusFilter !== 'all') {
-      result = result.filter((r) => r.status === statusFilter)
-    }
-    setFiltered(result)
-  }, [registrations, search, statusFilter])
-
-  const fetchRegistrations = async () => {
-    if (!profile) {
-      setLoading(false)
-      return
-    }
-    if (registrations.length === 0) {
-      setLoading(true)
-    }
+  const fetchRegistrations = useCallback(async (showSkeleton = false) => {
+    if (!profile?.id) return
+    
+    if (showSkeleton) setLoading(true)
     
     try {
       const { data, error } = await supabase
@@ -58,44 +84,56 @@ const MyRegistrations: React.FC = () => {
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false })
 
-      if (error) console.error('Error fetching my registrations:', error)
-      if (!error && data) setRegistrations(data)
+      if (error) throw error
+      if (data) setRegistrations(data)
     } catch (err) {
-      console.error('Unexpected error in MyRegistrations:', err)
+      console.error('Error fetching registrations:', err)
+      toast.error('Gagal mengambil pendaftaran')
     } finally {
       setLoading(false)
     }
-  }
+  }, [profile?.id])
 
-  const handleDownload = async (reg: Registration) => {
+  useEffect(() => {
+    fetchRegistrations(true)
+  }, [fetchRegistrations])
+
+  const filtered = useMemo(() => {
+    let result = registrations
+    const searchLower = search.toLowerCase()
+    
+    if (searchLower) {
+      result = result.filter((r) =>
+        r.program?.title.toLowerCase().includes(searchLower)
+      )
+    }
+    
+    if (statusFilter !== 'all') {
+      result = result.filter((r) => r.status === statusFilter)
+    }
+    
+    return result
+  }, [registrations, search, statusFilter])
+
+  const handleDownload = useCallback(async (reg: Registration) => {
     if (!reg.certificate_url) {
       toast.error('Sertifikat belum tersedia')
       return
     }
 
     try {
-      // Try to get the public URL or signed URL
-      const url = reg.certificate_url
-
-      // Create a temporary anchor element and trigger download
       const link = document.createElement('a')
-      link.href = url
+      link.href = reg.certificate_url
       link.download = `Sertifikat_${reg.program?.title || 'Program'}.pdf`
       link.target = '_blank'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-
       toast.success('Mengunduh sertifikat...')
     } catch {
       toast.error('Gagal mengunduh sertifikat')
     }
-  }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'short', year: 'numeric',
-    })
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,7 +147,7 @@ const MyRegistrations: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="card mb-6">
+        <div className="card mb-6 animate-fade-in">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -124,7 +162,7 @@ const MyRegistrations: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="input-field sm:w-44"
+              className="input-field sm:w-44 bg-white"
             >
               <option value="all">Semua Status</option>
               <option value="pending">Menunggu</option>
@@ -134,8 +172,8 @@ const MyRegistrations: React.FC = () => {
           </div>
         </div>
 
-        {/* Registrations Grid */}
-        {loading ? (
+        {/* Registrations List */}
+        {loading && registrations.length === 0 ? (
           <div className="card overflow-hidden p-0">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -153,7 +191,7 @@ const MyRegistrations: React.FC = () => {
             </table>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="card text-center py-16">
+          <div className="card text-center py-16 animate-fade-in">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 font-medium">
               {search || statusFilter !== 'all' ? 'Tidak ada hasil ditemukan' : 'Belum ada pendaftaran'}
@@ -165,7 +203,7 @@ const MyRegistrations: React.FC = () => {
         ) : (
           <>
             {/* Desktop Table */}
-            <div className="hidden md:block card overflow-hidden p-0">
+            <div className="hidden md:block card overflow-hidden p-0 shadow-sm animate-fade-in">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
@@ -177,58 +215,19 @@ const MyRegistrations: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filtered.map((reg) => (
-                    <tr key={reg.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <GraduationCap className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900 text-sm">{reg.program?.title}</p>
-                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                              <Calendar className="w-3 h-3" />
-                              {reg.program?.date ? formatDate(reg.program.date) : '-'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {formatDate(reg.created_at)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={reg.status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        {reg.status === 'approved' && reg.certificate_url ? (
-                          <button
-                            onClick={() => handleDownload(reg)}
-                            className="btn-primary text-xs px-3 py-1.5"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            Download
-                          </button>
-                        ) : reg.status === 'approved' ? (
-                          <span className="text-xs text-gray-400 italic">Sertifikat belum diupload</span>
-                        ) : (
-                          <button disabled className="btn-primary text-xs px-3 py-1.5 opacity-40 cursor-not-allowed">
-                            <Download className="w-3.5 h-3.5" />
-                            Download
-                          </button>
-                        )}
-                      </td>
-                    </tr>
+                    <RegistrationRow key={reg.id} reg={reg} onDownload={handleDownload} />
                   ))}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile Cards */}
-            <div className="md:hidden space-y-3">
+            <div className="md:hidden space-y-3 animate-fade-in">
               {filtered.map((reg) => (
-                <div key={reg.id} className="card">
+                <div key={reg.id} className="card group">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
                         <GraduationCap className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
@@ -244,7 +243,7 @@ const MyRegistrations: React.FC = () => {
                   {reg.status === 'approved' && reg.certificate_url && (
                     <button
                       onClick={() => handleDownload(reg)}
-                      className="btn-primary w-full justify-center text-sm"
+                      className="btn-primary w-full justify-center text-sm shadow-sm"
                     >
                       <Download className="w-4 h-4" />
                       Download Sertifikat
@@ -261,7 +260,7 @@ const MyRegistrations: React.FC = () => {
 
         {/* Summary */}
         {!loading && registrations.length > 0 && (
-          <p className="text-xs text-gray-400 text-center mt-4">
+          <p className="text-xs text-gray-400 text-center mt-6">
             Menampilkan {filtered.length} dari {registrations.length} pendaftaran
           </p>
         )}
@@ -271,3 +270,4 @@ const MyRegistrations: React.FC = () => {
 }
 
 export default MyRegistrations
+

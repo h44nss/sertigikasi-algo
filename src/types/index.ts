@@ -16,6 +16,10 @@ export interface Program {
   date: string
   venue: string
   price: number
+  image_url: string | null
+  quota: number
+  registration_deadline: string
+  registered_count?: number
   created_at?: string
 }
 

@@ -25,7 +25,7 @@ export const TableRowSkeleton: React.FC<{ cols?: number }> = ({ cols = 5 }) => (
   <tr className="border-b border-gray-50">
     {Array.from({ length: cols }).map((_, i) => (
       <td key={i} className="px-6 py-4">
-        <div className="skeleton h-4 rounded" style={{ width: `${Math.random() * 40 + 40}%` }} />
+        <div className="skeleton h-4 rounded" style={{ width: `${(i % 5) * 10 + 40}%` }} />
       </td>
     ))}
   </tr>

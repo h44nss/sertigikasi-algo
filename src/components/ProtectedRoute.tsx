@@ -26,8 +26,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, role }) => {
   if (!user) return <Navigate to="/login" replace />
 
   // FIX: user is authenticated but profile hasn't loaded yet (e.g. slow DB or fetch error).
-  // Show spinner briefly instead of rendering children without role protection.
-  if (!profile) return <Spinner />
+  // If it's still null, we shouldn't spin forever. We either show a failed state or redirect.
+  // Since loading is false here, it means profile fetching finished or failed.
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
+        <p className="text-red-500 font-semibold mb-2">Gagal memuat profil pengguna.</p>
+        <p className="text-gray-500 text-sm mb-4">Silakan muat ulang halaman atau coba login kembali.</p>
+        <button onClick={() => window.location.href = '/login'} className="btn-primary">
+          Kembali ke Login
+        </button>
+      </div>
+    )
+  }
 
   // Wrong role → redirect to correct home
   if (role && profile.role !== role) {

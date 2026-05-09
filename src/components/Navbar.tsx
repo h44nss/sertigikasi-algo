@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { GraduationCap, Menu, X, LogOut, LayoutDashboard, FileText, User, ChevronDown } from 'lucide-react'
+import { Menu, X, LogOut, LayoutDashboard, FileText, User, ChevronDown } from 'lucide-react'
+import logo from '../assets/logo.png'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
@@ -25,12 +26,10 @@ const Navbar: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
+            <img src={logo} alt="Logo Budi Luhur" className="w-10 h-10 object-contain" />
             <div className="hidden sm:block">
-              <span className="font-bold text-gray-900 text-sm leading-none block">SertifikasiKampus</span>
-              <span className="text-xs text-gray-400 leading-none">Pusat Sertifikasi</span>
+              <span className="font-bold text-gray-900 text-sm leading-none block">Budi Luhur</span>
+              <span className="text-xs text-gray-400 leading-none">Sertifikasi Algoritma</span>
             </div>
           </Link>
 
@@ -41,6 +40,12 @@ const Navbar: React.FC = () => {
               className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'}`}
             >
               Beranda
+            </Link>
+            <Link
+              to="/programs"
+              className={`text-sm font-medium transition-colors ${isActive('/programs') ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              Sertifikasi
             </Link>
 
             {user && profile?.role === 'student' && (
@@ -160,6 +165,13 @@ const Navbar: React.FC = () => {
               >
                 Beranda
               </Link>
+              <Link
+                to="/programs"
+                className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                onClick={() => setMenuOpen(false)}
+              >
+                Sertifikasi
+              </Link>
 
               {user && profile?.role === 'student' && (
                 <>
@@ -215,4 +227,4 @@ const Navbar: React.FC = () => {
   )
 }
 
-export default Navbar
+export default React.memo(Navbar)

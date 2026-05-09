@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { UserProfile } from '../types'
@@ -17,90 +17,139 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const isMounted = useRef(true)
+  const lastProcessedId = useRef<string | null>(null)
 
-  const fetchProfile = async (userId: string) => {
+  useEffect(() => {
+    isMounted.current = true
+    return () => { isMounted.current = false }
+  }, [])
+
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, name, nim, role')
         .eq('id', userId)
         .single()
 
       if (error) {
         console.error('Error fetching profile:', error)
+        if (isMounted.current) setProfile(null)
         return
       }
 
-      if (data) {
+      if (data && isMounted.current) {
         setProfile(data as UserProfile)
       }
     } catch (err) {
       console.error('Unexpected error fetching profile:', err)
     }
-  }
+  }, [])
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id)
     }
-  }
+  }, [user, fetchProfile])
 
   useEffect(() => {
-    let mounted = true
+    // FIX: Initial session check to prevent redundant loading state
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) throw sessionError
 
-    // FIX: Safety-net timeout — if Supabase never fires any event, stop loading after 10s
-    const timeout = setTimeout(() => {
-      if (mounted) setLoading(false)
-    }, 10000)
+        if (isMounted.current) {
+          const userId = session?.user?.id ?? null
+          setUser(session?.user ?? null)
+          
+          if (userId && lastProcessedId.current !== userId) {
+            lastProcessedId.current = userId
+            await fetchProfile(userId)
+          } else if (!userId) {
+            lastProcessedId.current = null
+            setProfile(null)
+          }
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err)
+      } finally {
+        if (isMounted.current) setLoading(false)
+      }
+    }
+
+    initAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!mounted) return
+        if (!isMounted.current) return
 
         try {
+          const userId = session?.user?.id ?? null
+          
           if (event === 'SIGNED_OUT') {
             setUser(null)
             setProfile(null)
-          } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            lastProcessedId.current = null
+          } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
             setUser(session?.user ?? null)
-            if (session?.user) {
-              await fetchProfile(session.user.id)
-            } else {
-              setProfile(null)
+            
+            if (userId && lastProcessedId.current !== userId) {
+              lastProcessedId.current = userId
+              await fetchProfile(userId)
             }
-          } else if (event === 'TOKEN_REFRESHED') {
-            // FIX: Only update the user token — do NOT re-fetch profile here.
-            // Re-fetching profile on TOKEN_REFRESHED causes a reload loop because
-            // the new supabase client fires TOKEN_REFRESHED on every navigation.
-            setUser(session?.user ?? null)
           }
         } catch (err) {
           console.error('AuthContext error during event', event, err)
         } finally {
-          // FIX: loading=false is now GUARANTEED to fire regardless of errors
-          if (mounted) {
-            clearTimeout(timeout)
-            setLoading(false)
-          }
+          if (isMounted.current) setLoading(false)
         }
       }
     )
 
     return () => {
-      mounted = false
-      clearTimeout(timeout)
       subscription.unsubscribe()
+    }
+  }, [fetchProfile])
+
+  // Safety Timeout: Prevent infinite loading if initialization hangs
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => {
+        if (isMounted.current) {
+          console.warn('Auth initialization timeout - forcing loading false')
+          setLoading(false)
+        }
+      }, 7000)
+      return () => clearTimeout(timer)
+    }
+  }, [loading])
+
+  const signOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch (err) {
+      console.error('Error during signOut:', err)
+    } finally {
+      if (isMounted.current) {
+        setUser(null)
+        setProfile(null)
+      }
     }
   }, [])
 
-  const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-  }
+  const value = React.useMemo(() => ({
+    user,
+    profile,
+    loading,
+    signOut,
+    refreshProfile
+  }), [user, profile, loading, signOut, refreshProfile])
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

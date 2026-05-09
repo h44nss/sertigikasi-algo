@@ -12,12 +12,15 @@
   body {
     font-family: 'Inter', system-ui, sans-serif;
     @apply bg-gray-50 text-gray-900 antialiased;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
 @layer components {
   .btn-primary {
     @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg px-4 py-2 transition-all duration-200 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    transform: translateZ(0); /* Force GPU acceleration */
   }
 
   .btn-secondary {
@@ -34,6 +37,8 @@
 
   .card {
     @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    transform: translateZ(0);
+    will-change: transform, box-shadow;
   }
 
   .badge-pending {
@@ -56,13 +61,36 @@
     @apply block text-sm font-medium text-gray-700 mb-1.5;
   }
 
+  /* GPU Optimized Skeleton Shimmer */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
   .skeleton {
-    @apply animate-pulse bg-gray-200 rounded;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+    @apply rounded;
+    will-change: background-position;
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-200 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-300;
   }
 }

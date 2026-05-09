@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS public.programs (
   date DATE NOT NULL,
   venue TEXT NOT NULL DEFAULT 'Online',
   price INTEGER NOT NULL DEFAULT 0,
+  image_url TEXT,
+  quota INTEGER NOT NULL DEFAULT 50,
+  registration_deadline DATE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -138,15 +141,44 @@ CREATE POLICY "Admins can update certificates"
   );
 
 -- =============================================
+-- STORAGE: posters bucket
+-- =============================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('posters', 'posters', true)
+ON CONFLICT DO NOTHING;
+
+CREATE POLICY "Admins can upload posters"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'posters' AND
+    EXISTS (
+      SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+CREATE POLICY "Anyone can view posters"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'posters');
+
+CREATE POLICY "Admins can update posters"
+  ON storage.objects FOR UPDATE
+  USING (
+    bucket_id = 'posters' AND
+    EXISTS (
+      SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+-- =============================================
 -- SEED DATA (Opsional - Sample Programs)
 -- =============================================
-INSERT INTO public.programs (title, description, date, venue, price) VALUES
-  ('Sertifikasi Web Developer', 'Program sertifikasi untuk pengembang web modern. Mencakup HTML, CSS, JavaScript, React, dan teknologi backend. Peserta akan mendapatkan sertifikat resmi kampus.', '2024-03-15', 'Lab Komputer A1', 150000),
-  ('Sertifikasi Data Science', 'Program komprehensif tentang analisis data, machine learning, dan visualisasi data menggunakan Python. Cocok untuk mahasiswa yang ingin berkarir di bidang data.', '2024-04-20', 'Lab Komputer B2', 200000),
-  ('Sertifikasi UI/UX Design', 'Pelajari desain antarmuka pengguna yang modern dan pengalaman pengguna yang luar biasa. Menggunakan Figma dan prinsip-prinsip desain terkini.', '2024-05-10', 'Online via Zoom', 0),
-  ('Sertifikasi Cybersecurity', 'Program keamanan siber yang mencakup ethical hacking, network security, dan best practices keamanan informasi.', '2024-06-05', 'Auditorium Kampus', 250000),
-  ('Sertifikasi Mobile Development', 'Pengembangan aplikasi mobile menggunakan Flutter dan React Native untuk platform Android dan iOS.', '2024-07-15', 'Lab Komputer C1', 100000),
-  ('Sertifikasi Cloud Computing', 'Teknologi cloud menggunakan AWS, Google Cloud, dan Azure. Mencakup deployment, scalability, dan manajemen infrastruktur cloud.', '2024-08-20', 'Online via Meet', 0)
+INSERT INTO public.programs (title, description, date, venue, price, image_url, quota, registration_deadline) VALUES
+  ('Sertifikasi Web Developer', 'Program sertifikasi untuk pengembang web modern. Mencakup HTML, CSS, JavaScript, React, dan teknologi backend. Peserta akan mendapatkan sertifikat resmi kampus.', '2024-03-15', 'Lab Komputer A1', 150000, 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80', 40, '2024-03-10'),
+  ('Sertifikasi Data Science', 'Program komprehensif tentang analisis data, machine learning, dan visualisasi data menggunakan Python. Cocok untuk mahasiswa yang ingin berkarir di bidang data.', '2024-04-20', 'Lab Komputer B2', 200000, 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80', 30, '2024-04-15'),
+  ('Sertifikasi UI/UX Design', 'Pelajari desain antarmuka pengguna yang modern dan pengalaman pengguna yang luar biasa. Menggunakan Figma dan prinsip-prinsip desain terkini.', '2024-05-10', 'Online via Zoom', 0, 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&q=80', 100, '2024-05-05'),
+  ('Sertifikasi Cybersecurity', 'Program keamanan siber yang mencakup ethical hacking, network security, dan best practices keamanan informasi.', '2024-06-05', 'Auditorium Kampus', 250000, 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80', 50, '2024-05-30'),
+  ('Sertifikasi Mobile Development', 'Pengembangan aplikasi mobile menggunakan Flutter dan React Native untuk platform Android dan iOS.', '2024-07-15', 'Lab Komputer C1', 100000, 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&q=80', 40, '2024-07-10'),
+  ('Sertifikasi Cloud Computing', 'Teknologi cloud menggunakan AWS, Google Cloud, dan Azure. Mencakup deployment, scalability, dan manajemen infrastruktur cloud.', '2024-08-20', 'Online via Meet', 0, 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80', 100, '2024-08-15')
 ON CONFLICT DO NOTHING;
 
 -- =============================================

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   GraduationCap,
   Calendar,
@@ -11,80 +11,137 @@ import {
   CreditCard,
   X,
 } from 'lucide-react'
+import XenditSimulation from '../components/XenditSimulation'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import type { Program, Registration } from '../types'
-import { CardSkeleton } from '../components/Skeleton'
+import { usePrograms } from '../hooks/usePrograms'
+import { useRegistrations } from '../hooks/useRegistrations'
+import type { Program } from '../types'
+import { CardSkeleton, StatSkeleton } from '../components/Skeleton'
 import Navbar from '../components/Navbar'
 import StatusBadge from '../components/StatusBadge'
 import toast from 'react-hot-toast'
 
+// Helper functions moved outside component
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0
+  }).format(price)
+}
+
+const formatDate = (dateStr: string) =>
+  new Date(dateStr).toLocaleDateString('id-ID', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+
+// Memoized Stat Component
+const StatCard = React.memo(({ label, value, icon: Icon, color }: any) => (
+  <div className="card">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-gray-500 mb-1">{label}</p>
+        <p className="text-3xl font-bold text-gray-900">{value}</p>
+      </div>
+      <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center`}>
+        <Icon className="w-6 h-6" />
+      </div>
+    </div>
+  </div>
+))
+
+StatCard.displayName = 'StatCard'
+
 const StudentDashboard: React.FC = () => {
   const { profile } = useAuth()
   const location = useLocation()
-  const [programs, setPrograms] = useState<Program[]>([])
-  const [myRegistrations, setMyRegistrations] = useState<Registration[]>([])
-  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+  const isMounted = useRef(true)
+
+  const { programs, loading: loadingPrograms } = usePrograms()
+  const { registrations, loading: loadingRegs, refresh: refreshRegs } = useRegistrations()
+
   const [registering, setRegistering] = useState<string | null>(null)
   const [paymentProgram, setPaymentProgram] = useState<Program | null>(null)
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
-  const [processingPayment, setProcessingPayment] = useState(false)
-
-  // FIX: Use profile?.id (stable string) instead of profile (object reference).
-  // Using the object causes re-fetch on every AuthContext re-render (e.g. TOKEN_REFRESHED).
-  useEffect(() => {
-    fetchData()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id])
 
   useEffect(() => {
-    // Handle redirect from landing page for a specific program
+    isMounted.current = true
+    return () => { isMounted.current = false }
+  }, [])
+
+  const loading = loadingPrograms || loadingRegs
+
+  // Optimize registration lookup
+  const registeredProgramIds = useMemo(() =>
+    new Set(registrations.map(r => r.program_id)),
+    [registrations]
+  )
+
+  const isRegistered = useCallback((programId: string) =>
+    registeredProgramIds.has(programId),
+    [registeredProgramIds]
+  )
+
+  // Memoized stats
+  const stats = useMemo(() => [
+    {
+      label: 'Program Terdaftar',
+      value: registrations.length,
+      icon: ClipboardList,
+      color: 'bg-blue-50 text-blue-600',
+    },
+    {
+      label: 'Disetujui',
+      value: registrations.filter((r) => r.status === 'approved').length,
+      icon: CheckCircle,
+      color: 'bg-green-50 text-green-600',
+    },
+    {
+      label: 'Menunggu',
+      value: registrations.filter((r) => r.status === 'pending').length,
+      icon: Clock,
+      color: 'bg-yellow-50 text-yellow-600',
+    },
+  ], [registrations])
+
+  // Handle direct registration from landing page
+  useEffect(() => {
     if (location.state?.registerProgramId && programs.length > 0) {
       const program = programs.find(p => p.id === location.state.registerProgramId)
       if (program) {
         setSelectedProgram(program)
-        // Clear the state so it doesn't trigger again on refresh
-        window.history.replaceState({}, document.title)
+        navigate(location.pathname, { replace: true, state: {} })
       }
     }
-  }, [location.state, programs])
+  }, [location.state, programs, navigate, location.pathname])
 
-  const fetchData = async () => {
-    if (!profile) {
-      setLoading(false)
-      return
-    }
-    // Only show skeleton on initial load or if data is empty to prevent "loading flicker"
-    if (programs.length === 0) {
-      setLoading(true)
-    }
+  const executeRegistration = async (programId: string, paymentStatus: 'unpaid' | 'paid') => {
+    if (!profile?.id) return
+    setRegistering(programId)
 
     try {
-      const [{ data: programsData, error: progErr }, { data: regsData, error: regErr }] = await Promise.all([
-        supabase.from('programs').select('*').order('created_at', { ascending: false }),
-        supabase
-          .from('registrations')
-          .select('*, program:programs(*)')
-          .eq('user_id', profile.id)
-          .order('created_at', { ascending: false }),
-      ])
+      const { error } = await supabase.from('registrations').insert({
+        user_id: profile.id,
+        program_id: programId,
+        status: 'pending',
+        payment_status: paymentStatus,
+      })
 
-      if (progErr) console.error('Error fetching programs:', progErr)
-      if (regErr) console.error('Error fetching registrations:', regErr)
+      if (error) throw error
 
-      setPrograms(programsData || [])
-      setMyRegistrations(regsData || [])
+      toast.success('Berhasil mendaftar program')
+      await refreshRegs()
     } catch (err) {
-      console.error('Unexpected error in StudentDashboard:', err)
+      toast.error('Gagal mendaftar program')
+      console.error(err)
     } finally {
-      setLoading(false)
+      if (isMounted.current) setRegistering(null)
     }
   }
 
-  const isRegistered = (programId: string) =>
-    myRegistrations.some((r) => r.program_id === programId)
-
-  const handleRegister = async (program: Program) => {
+  const handleRegister = useCallback((program: Program) => {
     if (!profile) return
     if (isRegistered(program.id)) {
       toast('Kamu sudah mendaftar program ini', { icon: 'ℹ️' })
@@ -96,75 +153,14 @@ const StudentDashboard: React.FC = () => {
       return
     }
 
-    // Free program, direct registration
-    executeRegistration(program.id, 'paid') // For free programs, mark as paid
-  }
+    executeRegistration(program.id, 'paid')
+  }, [profile, isRegistered])
 
-  const executeRegistration = async (programId: string, paymentStatus: 'unpaid' | 'paid') => {
-    if (!profile) return
-    setRegistering(programId)
-    const { error } = await supabase.from('registrations').insert({
-      user_id: profile.id,
-      program_id: programId,
-      status: 'pending',
-      payment_status: paymentStatus,
-      certificate_url: null,
-    })
-
-    if (error) {
-      toast.error('Gagal mendaftar program')
-    } else {
-      toast.success('Berhasil mendaftar program')
-      fetchData()
-    }
-    setRegistering(null)
-  }
-
-  const handlePayment = async () => {
+  const handlePaymentSuccess = async () => {
     if (!paymentProgram) return
-    setProcessingPayment(true)
-    
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
     await executeRegistration(paymentProgram.id, 'paid')
-    setProcessingPayment(false)
-    setPaymentProgram(null)
+    if (isMounted.current) setPaymentProgram(null)
   }
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(price)
-  }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric',
-    })
-
-  const stats = [
-    {
-      label: 'Program Terdaftar',
-      value: myRegistrations.length,
-      icon: ClipboardList,
-      color: 'bg-blue-50 text-blue-600',
-    },
-    {
-      label: 'Disetujui',
-      value: myRegistrations.filter((r) => r.status === 'approved').length,
-      icon: CheckCircle,
-      color: 'bg-green-50 text-green-600',
-    },
-    {
-      label: 'Menunggu',
-      value: myRegistrations.filter((r) => r.status === 'pending').length,
-      icon: Clock,
-      color: 'bg-yellow-50 text-yellow-600',
-    },
-  ]
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -181,26 +177,15 @@ const StudentDashboard: React.FC = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {stats.map((stat, i) => {
-            const Icon = stat.icon
-            return (
-              <div key={i} className="card">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">{stat.label}</p>
-                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                  </div>
-                  <div className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+          {loading && registrations.length === 0 ? (
+            [1, 2, 3].map(i => <StatSkeleton key={i} />)
+          ) : (
+            stats.map((stat, i) => <StatCard key={i} {...stat} />)
+          )}
         </div>
 
         {/* Recent Registrations */}
-        {myRegistrations.length > 0 && (
+        {registrations.length > 0 && (
           <div className="card mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-900">Pendaftaran Terbaru</h2>
@@ -209,7 +194,7 @@ const StudentDashboard: React.FC = () => {
               </Link>
             </div>
             <div className="space-y-3">
-              {myRegistrations.slice(0, 3).map((reg) => (
+              {registrations.slice(0, 3).map((reg) => (
                 <div key={reg.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -234,7 +219,7 @@ const StudentDashboard: React.FC = () => {
             <h2 className="text-xl font-bold text-gray-900">Program Tersedia</h2>
           </div>
 
-          {loading ? (
+          {loading && programs.length === 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => <CardSkeleton key={i} />)}
             </div>
@@ -253,9 +238,20 @@ const StudentDashboard: React.FC = () => {
                     className="card hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group flex flex-col"
                   >
                     <div className="flex-1">
-                      <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
-                        <GraduationCap className="w-5 h-5 text-blue-600" />
-                      </div>
+                      {program.image_url ? (
+                        <div className="w-full h-40 rounded-xl mb-4 overflow-hidden bg-gray-100">
+                          <img
+                            src={program.image_url}
+                            alt={program.title}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                          <GraduationCap className="w-5 h-5 text-blue-600" />
+                        </div>
+                      )}
                       <h3 className="font-semibold text-gray-900 mb-2 line-clamp-1">{program.title}</h3>
                       <p className="text-gray-500 text-sm leading-relaxed mb-4 line-clamp-2">{program.description}</p>
                       <div className="flex flex-col gap-2 text-gray-400 text-xs mb-5">
@@ -305,7 +301,7 @@ const StudentDashboard: React.FC = () => {
 
       {/* Program Detail Modal */}
       {selectedProgram && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -319,12 +315,22 @@ const StudentDashboard: React.FC = () => {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="mb-6">
-                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
-                  <GraduationCap className="w-8 h-8 text-blue-600" />
-                </div>
+                {selectedProgram.image_url ? (
+                  <div className="w-full h-48 md:h-64 rounded-2xl mb-6 overflow-hidden bg-gray-100">
+                    <img
+                      src={selectedProgram.image_url}
+                      alt={selectedProgram.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
+                    <GraduationCap className="w-8 h-8 text-blue-600" />
+                  </div>
+                )}
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{selectedProgram.title}</h3>
                 <p className="text-gray-600 text-base leading-relaxed whitespace-pre-wrap">
                   {selectedProgram.description}
@@ -394,60 +400,14 @@ const StudentDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Payment Modal */}
+      {/* Payment Modal (Xendit Simulation) */}
       {paymentProgram && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md animate-slide-up">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-blue-600" />
-                Simulasi Pembayaran
-              </h2>
-              <button
-                onClick={() => setPaymentProgram(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                disabled={processingPayment}
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                <p className="text-sm text-gray-500 mb-1">Total Tagihan untuk:</p>
-                <p className="font-semibold text-gray-900 mb-3">{paymentProgram.title}</p>
-                <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                  <span className="text-gray-500">Total Pembayaran</span>
-                  <span className="text-xl font-bold text-blue-600">{formatPrice(paymentProgram.price)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={handlePayment}
-                  disabled={processingPayment}
-                  className="btn-primary w-full justify-center py-3"
-                >
-                  {processingPayment ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Memproses...
-                    </span>
-                  ) : (
-                    'Bayar Sekarang'
-                  )}
-                </button>
-                <button
-                  onClick={() => setPaymentProgram(null)}
-                  disabled={processingPayment}
-                  className="btn-secondary w-full justify-center py-3"
-                >
-                  Batal
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <XenditSimulation
+          amount={paymentProgram.price}
+          programTitle={paymentProgram.title}
+          onSuccess={handlePaymentSuccess}
+          onClose={() => setPaymentProgram(null)}
+        />
       )}
     </div>
   )
