@@ -19,6 +19,7 @@ import type { Program } from '../types'
 import { CardSkeleton } from '../components/Skeleton'
 import Navbar from '../components/Navbar'
 import toast from 'react-hot-toast'
+import logo from '../assets/logo.png'
 import heroBg from '../assets/hero-bg.png'
 
 // Externalized helpers
@@ -410,9 +411,7 @@ const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-                <GraduationCap className="w-4 h-4 text-white" />
-              </div>
+              <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
               <span className="font-semibold text-gray-900 text-sm">SertifikasiKampus</span>
             </div>
             <p className="text-gray-400 text-sm">© 2026 SertifikasiKampus. Hak cipta dilindungi.</p>

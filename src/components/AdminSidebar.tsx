@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import logo from '../assets/logo.png'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -37,9 +38,7 @@ const AdminSidebar: React.FC = () => {
       {/* Logo */}
       <div className="p-6 border-b border-gray-100">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-            <GraduationCap className="w-5 h-5 text-white" />
-          </div>
+          <img src={logo} alt="Logo" className="w-10 h-10 object-contain" />
           <div>
             <p className="font-bold text-gray-900 text-sm leading-tight">SertifikasiKampus</p>
             <p className="text-xs text-gray-400">Admin Panel</p>

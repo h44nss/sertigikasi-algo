@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { GraduationCap, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { supabase, nimToEmail } from '../lib/supabase'
 import toast from 'react-hot-toast'
+import logo from '../assets/logo.png'
 
 const registerSchema = z.object({
   nim: z.string().min(5, 'NIM minimal 5 karakter').max(20, 'NIM maksimal 20 karakter'),
@@ -93,10 +94,8 @@ const RegisterPage: React.FC = () => {
       {/* Top bar */}
       <div className="p-4">
         <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors text-sm">
-          <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-            <GraduationCap className="w-4 h-4 text-white" />
-          </div>
-          SertifikasiKampus
+          <img src={logo} alt="Logo" className="w-8 h-8 object-contain" />
+          <span className="font-semibold text-gray-900">SertifikasiKampus</span>
         </Link>
       </div>
 
