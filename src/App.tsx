@@ -20,6 +20,9 @@ const ProgramsPage = lazy(() => import('./pages/admin/ProgramsPage'))
 const RegistrationsPage = lazy(() => import('./pages/admin/RegistrationsPage'))
 const ExportPage = lazy(() => import('./pages/admin/ExportPage'))
 
+// Profile Page
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+
 // Loading Component
 const PageLoader = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -82,6 +85,13 @@ const AppRoutes: React.FC = () => {
         <Route path="/admin/export" element={
           <ProtectedRoute role="admin">
             <ExportPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Shared Protected */}
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         } />
 

@@ -123,6 +123,13 @@ const Navbar: React.FC = () => {
                         <LayoutDashboard className="w-4 h-4" /> Admin Panel
                       </Link>
                     )}
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <User className="w-4 h-4" /> Pengaturan Profil
+                    </Link>
                     <hr className="my-1 border-gray-100" />
                     <button
                       onClick={handleSignOut}
@@ -199,6 +206,16 @@ const Navbar: React.FC = () => {
                   onClick={() => setMenuOpen(false)}
                 >
                   Admin Panel
+                </Link>
+              )}
+
+              {user && (
+                <Link
+                  to="/profile"
+                  className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <User className="w-4 h-4" /> Pengaturan Profil
                 </Link>
               )}
 

@@ -7,6 +7,7 @@ import {
   LogOut,
   GraduationCap,
   Download,
+  Settings,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -17,6 +18,7 @@ const navItems = [
   { label: 'Program', icon: BookOpen, path: '/admin/programs' },
   { label: 'Verifikasi', icon: ClipboardList, path: '/admin/registrations' },
   { label: 'Export', icon: Download, path: '/admin/export' },
+  { label: 'Pengaturan', icon: Settings, path: '/profile' },
 ]
 
 const AdminSidebar: React.FC = () => {
