@@ -3,74 +3,87 @@ import { supabase } from '../lib/supabase'
 import type { Registration } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 
+// Per-user module-level cache
 let cachedRegistrations: Registration[] | null = null
 let lastUserId: string | null = null
+let isFetching = false
+const listeners: Array<() => void> = []
+
+const notifyListeners = () => listeners.forEach(fn => fn())
+
+const fetchFromDB = async (userId: string) => {
+  if (isFetching) return
+  isFetching = true
+
+  try {
+    const { data, error } = await supabase
+      .from('registrations')
+      .select('id, user_id, program_id, status, payment_status, certificate_url, created_at, program:programs(id, title, date, venue, price, image_url)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    cachedRegistrations = (data || []) as unknown as Registration[]
+    lastUserId = userId
+  } catch (err) {
+    console.error('Error fetching registrations:', err)
+    cachedRegistrations = []
+  } finally {
+    isFetching = false
+    notifyListeners()
+  }
+}
 
 export const useRegistrations = () => {
   const { profile } = useAuth()
-  const [registrations, setRegistrations] = useState<Registration[]>(cachedRegistrations || [])
-  const [loading, setLoading] = useState(profile?.id && (!cachedRegistrations || lastUserId !== profile.id) ? true : false)
-  const [error, setError] = useState<any>(null)
+  const userId = profile?.id ?? null
+
+  const isCacheValid = cachedRegistrations !== null && lastUserId === userId
+
+  const [registrations, setRegistrations] = useState<Registration[]>(isCacheValid ? cachedRegistrations! : [])
+  const [loading, setLoading] = useState(userId !== null && !isCacheValid)
   const isMounted = useRef(true)
 
   useEffect(() => {
     isMounted.current = true
-    return () => { isMounted.current = false }
-  }, [])
 
-  const fetchRegistrations = useCallback(async (force = false) => {
-    if (!profile?.id) return
-
-    // If not forced and we have cache for the same user, skip fetch
-    if (cachedRegistrations && lastUserId === profile.id && !force) {
+    const listener = () => {
       if (isMounted.current) {
-        setRegistrations(cachedRegistrations)
+        setRegistrations(cachedRegistrations || [])
         setLoading(false)
       }
-      return
     }
+    listeners.push(listener)
 
-    if (isMounted.current) setLoading(true)
-    
-    try {
-      const { data, error: err } = await supabase
-        .from('registrations')
-        .select('*, program:programs(*)')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-
-      if (err) throw err
-
-      cachedRegistrations = data || []
-      lastUserId = profile.id
-      
-      if (isMounted.current) {
-        setRegistrations(cachedRegistrations)
-        setError(null)
-      }
-    } catch (err) {
-      console.error('Error fetching registrations:', err)
-      if (isMounted.current) setError(err)
-    } finally {
-      if (isMounted.current) setLoading(false)
-    }
-  }, [profile?.id])
-
-  useEffect(() => {
-    if (profile?.id) {
-      if (!cachedRegistrations || lastUserId !== profile.id) {
-        fetchRegistrations()
-      }
-    } else {
+    if (!userId) {
+      // Logged out — clear everything
+      cachedRegistrations = null
+      lastUserId = null
       setRegistrations([])
       setLoading(false)
+    } else if (cachedRegistrations !== null && lastUserId === userId) {
+      // Cache hit
+      setRegistrations(cachedRegistrations)
+      setLoading(false)
+    } else {
+      // Cache miss — fetch
+      fetchFromDB(userId)
     }
-  }, [profile?.id, fetchRegistrations])
 
-  return { 
-    registrations, 
-    loading, 
-    error, 
-    refresh: useCallback(() => fetchRegistrations(true), [fetchRegistrations]) 
-  }
+    return () => {
+      isMounted.current = false
+      const idx = listeners.indexOf(listener)
+      if (idx !== -1) listeners.splice(idx, 1)
+    }
+  }, [userId])
+
+  const refresh = useCallback(() => {
+    if (!userId) return
+    cachedRegistrations = null
+    if (isMounted.current) setLoading(true)
+    fetchFromDB(userId)
+  }, [userId])
+
+  return { registrations, loading, error: null, refresh }
 }

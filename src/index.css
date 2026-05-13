@@ -19,8 +19,15 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg px-4 py-2 transition-all duration-200 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply text-white font-medium rounded-lg px-4 py-2 transition-all duration-200 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: #0d2268;
     transform: translateZ(0); /* Force GPU acceleration */
+  }
+  .btn-primary:hover {
+    background-color: #0a1a52;
+  }
+  .btn-primary:active {
+    background-color: #071340;
   }
 
   .btn-secondary {

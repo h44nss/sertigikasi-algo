@@ -74,11 +74,11 @@ const LoginPage: React.FC = () => {
         <div className="w-full max-w-sm">
           <div className="card shadow-lg">
             <div className="text-center mb-8">
-              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <LogIn className="w-7 h-7 text-blue-600" />
+              <div className="flex justify-center mb-4">
+                <img src={logo} alt="Logo" className="h-16 object-contain" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Selamat Datang</h1>
-              <p className="text-gray-500 text-sm mt-1">Masuk ke akun SertifikasiKampus</p>
+              <p className="text-gray-500 text-sm mt-1">Masuk ke akun Sertifikasi Algoritma Budi Luhur</p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

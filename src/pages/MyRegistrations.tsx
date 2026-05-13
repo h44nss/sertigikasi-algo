@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react'
+import React, { useMemo, useCallback } from 'react'
 import {
   GraduationCap,
   Download,
@@ -6,12 +6,12 @@ import {
   FileText,
   Search,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../contexts/AuthContext'
+import { useRegistrations } from '../hooks/useRegistrations'
 import type { Registration } from '../types'
 import { TableRowSkeleton } from '../components/Skeleton'
 import Navbar from '../components/Navbar'
 import StatusBadge from '../components/StatusBadge'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
 
 // Externalized helpers
@@ -20,7 +20,7 @@ const formatDate = (dateStr: string) =>
     day: 'numeric', month: 'short', year: 'numeric',
   })
 
-// Memoized Table Row for better performance with many registrations
+// Memoized Table Row
 const RegistrationRow = React.memo(({ reg, onDownload }: { reg: Registration, onDownload: (reg: Registration) => void }) => (
   <tr className="hover:bg-gray-50 transition-colors group">
     <td className="px-6 py-4">
@@ -66,52 +66,25 @@ const RegistrationRow = React.memo(({ reg, onDownload }: { reg: Registration, on
 RegistrationRow.displayName = 'RegistrationRow'
 
 const MyRegistrations: React.FC = () => {
-  const { profile } = useAuth()
-  const [registrations, setRegistrations] = useState<Registration[]>([])
-  const [loading, setLoading] = useState(true)
+  // Use the shared hook with cache — no duplicate fetch!
+  const { registrations, loading } = useRegistrations()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-
-  const fetchRegistrations = useCallback(async (showSkeleton = false) => {
-    if (!profile?.id) return
-    
-    if (showSkeleton) setLoading(true)
-    
-    try {
-      const { data, error } = await supabase
-        .from('registrations')
-        .select('*, program:programs(*)')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      if (data) setRegistrations(data)
-    } catch (err) {
-      console.error('Error fetching registrations:', err)
-      toast.error('Gagal mengambil pendaftaran')
-    } finally {
-      setLoading(false)
-    }
-  }, [profile?.id])
-
-  useEffect(() => {
-    fetchRegistrations(true)
-  }, [fetchRegistrations])
 
   const filtered = useMemo(() => {
     let result = registrations
     const searchLower = search.toLowerCase()
-    
+
     if (searchLower) {
       result = result.filter((r) =>
-        r.program?.title.toLowerCase().includes(searchLower)
+        r.program?.title?.toLowerCase().includes(searchLower)
       )
     }
-    
+
     if (statusFilter !== 'all') {
       result = result.filter((r) => r.status === statusFilter)
     }
-    
+
     return result
   }, [registrations, search, statusFilter])
 
@@ -270,4 +243,3 @@ const MyRegistrations: React.FC = () => {
 }
 
 export default MyRegistrations
-

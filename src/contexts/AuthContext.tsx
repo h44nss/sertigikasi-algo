@@ -13,119 +13,145 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/** Clears ALL Supabase auth keys from localStorage (any key format) */
+const clearAuthStorage = () => {
+  try {
+    const keysToRemove = Object.keys(localStorage).filter(
+      k => k.startsWith('sb-') || k.includes('supabase') || k.includes('auth-token')
+    )
+    keysToRemove.forEach(k => localStorage.removeItem(k))
+  } catch {
+    // localStorage might be unavailable in some environments
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const isMounted = useRef(true)
-  const lastProcessedId = useRef<string | null>(null)
+  const initDone = useRef(false)
 
   useEffect(() => {
     isMounted.current = true
     return () => { isMounted.current = false }
   }, [])
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string): Promise<void> => {
     try {
       const { data, error } = await supabase
         .from('users')
         .select('id, name, nim, role')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) {
-        console.error('Error fetching profile:', error)
+        console.error('Error fetching profile:', error.message)
         if (isMounted.current) setProfile(null)
         return
       }
-
-      if (data && isMounted.current) {
-        setProfile(data as UserProfile)
-      }
+      if (isMounted.current) setProfile(data as UserProfile ?? null)
     } catch (err) {
       console.error('Unexpected error fetching profile:', err)
     }
   }, [])
 
   const refreshProfile = useCallback(async () => {
-    if (user) {
-      await fetchProfile(user.id)
-    }
+    if (user) await fetchProfile(user.id)
   }, [user, fetchProfile])
 
   useEffect(() => {
-    // FIX: Initial session check to prevent redundant loading state
+    let ignore = false
+
     const initAuth = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError) throw sessionError
+        const { data: { session }, error } = await supabase.auth.getSession()
 
-        if (isMounted.current) {
-          const userId = session?.user?.id ?? null
-          setUser(session?.user ?? null)
-          
-          if (userId && lastProcessedId.current !== userId) {
-            lastProcessedId.current = userId
-            await fetchProfile(userId)
-          } else if (!userId) {
-            lastProcessedId.current = null
+        if (ignore) return
+
+        // If Supabase returned an auth error, the stored token is invalid/expired
+        // Clear it so the next load starts clean instead of loading forever
+        if (error) {
+          console.warn('Auth token invalid, clearing storage:', error.message)
+          clearAuthStorage()
+          if (isMounted.current) {
+            setUser(null)
             setProfile(null)
           }
+          return
         }
-      } catch (err) {
-        console.error('Auth initialization error:', err)
+
+        initDone.current = true
+        const u = session?.user ?? null
+        if (isMounted.current) setUser(u)
+        if (u) await fetchProfile(u.id)
+
+      } catch (err: any) {
+        // Network error or token completely corrupted — clear it
+        console.warn('Auth init failed, clearing token:', err?.message)
+        clearAuthStorage()
+        if (isMounted.current) {
+          setUser(null)
+          setProfile(null)
+        }
       } finally {
-        if (isMounted.current) setLoading(false)
+        if (!ignore && isMounted.current) setLoading(false)
       }
     }
-
-    initAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted.current) return
 
-        try {
-          const userId = session?.user?.id ?? null
-          
-          if (event === 'SIGNED_OUT') {
+        // INITIAL_SESSION is handled by initAuth above — skip to avoid double fetch
+        if (event === 'INITIAL_SESSION') {
+          if (!initDone.current) {
+            initDone.current = true
+            const u = session?.user ?? null
+            if (isMounted.current) setUser(u)
+            if (u) await fetchProfile(u.id)
+            if (isMounted.current) setLoading(false)
+          }
+          return
+        }
+
+        if (event === 'SIGNED_OUT') {
+          if (isMounted.current) {
             setUser(null)
             setProfile(null)
-            lastProcessedId.current = null
-          } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-            setUser(session?.user ?? null)
-            
-            if (userId && lastProcessedId.current !== userId) {
-              lastProcessedId.current = userId
-              await fetchProfile(userId)
-            }
           }
-        } catch (err) {
-          console.error('AuthContext error during event', event, err)
-        } finally {
-          if (isMounted.current) setLoading(false)
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          const u = session?.user ?? null
+          if (isMounted.current) setUser(u)
+          if (u) await fetchProfile(u.id)
         }
+
+        if (isMounted.current) setLoading(false)
       }
     )
 
+    initAuth()
+
     return () => {
+      ignore = true
       subscription.unsubscribe()
     }
   }, [fetchProfile])
 
-  // Safety Timeout: Prevent infinite loading if initialization hangs
+  // Hard fallback: if still loading after 6s, clear token & reset
+  // This handles edge cases like network timeout during token refresh
   useEffect(() => {
-    if (loading) {
-      const timer = setTimeout(() => {
-        if (isMounted.current) {
-          console.warn('Auth initialization timeout - forcing loading false')
-          setLoading(false)
-        }
-      }, 7000)
-      return () => clearTimeout(timer)
-    }
-  }, [loading])
+    const timer = setTimeout(() => {
+      if (isMounted.current && loading) {
+        console.warn('Auth timeout — clearing potentially stale token')
+        clearAuthStorage()
+        setUser(null)
+        setProfile(null)
+        setLoading(false)
+      }
+    }, 6000)
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = useCallback(async () => {
     try {
@@ -133,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Error during signOut:', err)
     } finally {
+      clearAuthStorage()
       if (isMounted.current) {
         setUser(null)
         setProfile(null)
@@ -157,8 +184,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider')
   return context
 }

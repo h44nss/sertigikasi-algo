@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, X, LogOut, LayoutDashboard, FileText, User, ChevronDown } from 'lucide-react'
 import logo from '../assets/logo.png'
@@ -11,14 +11,28 @@ const Navbar: React.FC = () => {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const handleSignOut = async () => {
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [dropdownOpen])
+
+  const handleSignOut = useCallback(async () => {
+    setDropdownOpen(false)
     await signOut()
     toast.success('Berhasil keluar')
     navigate('/')
-  }
+  }, [signOut, navigate])
 
-  const isActive = (path: string) => location.pathname === path
+  const isActive = useCallback((path: string) => location.pathname === path, [location.pathname])
 
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-40">
@@ -78,7 +92,7 @@ const Navbar: React.FC = () => {
           {/* Auth Section */}
           <div className="hidden md:flex items-center gap-3">
             {user && profile ? (
-              <div className="relative">
+              <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 transition-colors"

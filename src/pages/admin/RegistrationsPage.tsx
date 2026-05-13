@@ -22,16 +22,16 @@ const formatDate = (dateStr: string) =>
   })
 
 // Memoized Registration Row
-const RegistrationRow = React.memo(({ 
-  reg, 
-  onApprove, 
-  onReject, 
-  onUpload, 
-  processing 
-}: { 
-  reg: Registration, 
-  onApprove: (r: Registration) => void, 
-  onReject: (r: Registration) => void, 
+const RegistrationRow = React.memo(({
+  reg,
+  onApprove,
+  onReject,
+  onUpload,
+  processing
+}: {
+  reg: Registration,
+  onApprove: (r: Registration) => void,
+  onReject: (r: Registration) => void,
   onUpload: (r: Registration) => void,
   processing: string | null
 }) => (
@@ -49,12 +49,12 @@ const RegistrationRow = React.memo(({
       {formatDate(reg.created_at)}
     </td>
     <td className="px-6 py-4">
-      <StatusBadge status={reg.status} />
-    </td>
-    <td className="px-6 py-4">
       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${reg.payment_status === 'paid' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
         {reg.payment_status === 'paid' ? 'Lunas' : 'Belum Lunas'}
       </span>
+    </td>
+    <td className="px-6 py-4">
+      <StatusBadge status={reg.status} />
     </td>
     <td className="px-6 py-4">
       {reg.status === 'approved' ? (
@@ -119,13 +119,13 @@ const RegistrationsPage: React.FC = () => {
 
   const fetchRegistrations = useCallback(async (showSkeleton = false) => {
     if (showSkeleton && isMounted.current) setLoading(true)
-    
+
     try {
       const { data, error } = await supabase
         .from('registrations')
         .select('*, program:programs(*), user:users(name, nim, id)')
         .order('created_at', { ascending: false })
-      
+
       if (error) throw error
       if (isMounted.current) setRegistrations(data || [])
     } catch (err) {
@@ -143,7 +143,7 @@ const RegistrationsPage: React.FC = () => {
   const filtered = useMemo(() => {
     let result = registrations
     const searchLower = search.toLowerCase()
-    
+
     if (searchLower) {
       result = result.filter(
         (r) =>
@@ -152,11 +152,11 @@ const RegistrationsPage: React.FC = () => {
           r.program?.title.toLowerCase().includes(searchLower)
       )
     }
-    
+
     if (statusFilter !== 'all') {
       result = result.filter((r) => r.status === statusFilter)
     }
-    
+
     return result
   }, [registrations, search, statusFilter])
 
@@ -170,8 +170,8 @@ const RegistrationsPage: React.FC = () => {
         .eq('id', reg.id)
 
       if (error) throw error
-      
-      toast.success('Pendaftaran disetujui')
+
+      toast.success('Pendaftaran Lulus')
       if (isMounted.current) {
         setUploadModal({ ...reg, status: 'approved' })
         setRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, status: 'approved' } : r))
@@ -188,7 +188,7 @@ const RegistrationsPage: React.FC = () => {
     if (!window.confirm('Yakin ingin menolak pendaftaran ini?')) return
     if (processing) return
     setProcessing(reg.id)
-    
+
     try {
       const { error } = await supabase
         .from('registrations')
@@ -196,8 +196,8 @@ const RegistrationsPage: React.FC = () => {
         .eq('id', reg.id)
 
       if (error) throw error
-      
-      toast.success('Pendaftaran ditolak')
+
+      toast.success('Pendaftaran Tidak Lulus')
       if (isMounted.current) {
         setRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, status: 'rejected' } : r))
       }
@@ -284,8 +284,8 @@ const RegistrationsPage: React.FC = () => {
             >
               <option value="all">Semua Status</option>
               <option value="pending">Menunggu</option>
-              <option value="approved">Disetujui</option>
-              <option value="rejected">Ditolak</option>
+              <option value="approved">Lulus</option>
+              <option value="rejected">Tidak Lulus</option>
             </select>
           </div>
         </div>
@@ -295,7 +295,7 @@ const RegistrationsPage: React.FC = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Mahasiswa', 'Program', 'Tanggal', 'Status', 'Pembayaran', 'Sertifikat', 'Aksi'].map((h) => (
+                  {['Mahasiswa', 'Program', 'Tanggal', 'Status Pembayaran', 'Status Kelulusan', 'Sertifikat', 'Aksi'].map((h) => (
                     <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
@@ -314,11 +314,11 @@ const RegistrationsPage: React.FC = () => {
                   </tr>
                 ) : (
                   filtered.map((reg) => (
-                    <RegistrationRow 
-                      key={reg.id} 
-                      reg={reg} 
-                      onApprove={handleApprove} 
-                      onReject={handleReject} 
+                    <RegistrationRow
+                      key={reg.id}
+                      reg={reg}
+                      onApprove={handleApprove}
+                      onReject={handleReject}
                       onUpload={setUploadModal}
                       processing={processing}
                     />

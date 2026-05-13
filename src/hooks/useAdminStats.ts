@@ -13,29 +13,27 @@ export const useAdminStats = () => {
 
   useEffect(() => {
     isMounted.current = true
-    return () => { isMounted.current = false }
+    return () => {
+      isMounted.current = false
+      // Allow re-fetch when component is re-mounted (e.g. navigating back)
+      hasFetched.current = false
+    }
   }, [])
 
   const fetchDashboardData = useCallback(async () => {
-    // In dev mode with StrictMode (though user removed it), this prevents double fetch
-    // Also acts as a guard for the initial load
-    if (hasFetched.current && isMounted.current) return
-    
-    if (isMounted.current) setLoading(true)
+    if (hasFetched.current) return
     hasFetched.current = true
+    if (isMounted.current) setLoading(true)
 
     try {
-      // Step 1: Parallel count queries and data queries
-      // We use Supabase's join features to avoid fetching entire tables
+      // Batch 1: All COUNT queries in one round — use head:true to avoid row data transfer
       const [
         totalProgramsRes,
         totalRegistrationsRes,
-        pendingRegistrationsRes,
-        approvedRegistrationsRes,
-        rejectedRegistrationsRes,
+        pendingRes,
+        approvedRes,
+        rejectedRes,
         totalStudentsRes,
-        recentDataRes,
-        programsDataRawRes
       ] = await Promise.all([
         supabase.from('programs').select('id', { count: 'exact', head: true }),
         supabase.from('registrations').select('id', { count: 'exact', head: true }),
@@ -43,40 +41,49 @@ export const useAdminStats = () => {
         supabase.from('registrations').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
         supabase.from('registrations').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
         supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student'),
-        supabase.from('registrations')
-          .select('*, program:programs(id, title), user:users(id, name, nim)')
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase.from('programs')
-          .select('id, title, price, registrations(status)')
       ])
 
-      if (isMounted.current) {
-        setStats({
-          totalPrograms: totalProgramsRes.count || 0,
-          totalRegistrations: totalRegistrationsRes.count || 0,
-          pendingRegistrations: pendingRegistrationsRes.count || 0,
-          approvedRegistrations: approvedRegistrationsRes.count || 0,
-          rejectedRegistrations: rejectedRegistrationsRes.count || 0,
-          totalStudents: totalStudentsRes.count || 0,
-        })
+      if (!isMounted.current) return
 
-        // Step 2: Process program reports efficiently
-        const programsData: any[] = programsDataRawRes.data || []
-        const reports = programsData.map(p => {
-          const regs = p.registrations || []
-          const approvedCount = regs.filter((r: any) => r.status === 'approved').length
-          return {
-            id: p.id,
-            title: p.title,
-            registeredCount: regs.length,
-            revenue: approvedCount * p.price
-          }
-        }).sort((a, b) => b.revenue - a.revenue)
+      setStats({
+        totalPrograms: totalProgramsRes.count || 0,
+        totalRegistrations: totalRegistrationsRes.count || 0,
+        pendingRegistrations: pendingRes.count || 0,
+        approvedRegistrations: approvedRes.count || 0,
+        rejectedRegistrations: rejectedRes.count || 0,
+        totalStudents: totalStudentsRes.count || 0,
+      })
 
-        setProgramReports(reports)
-        setRecentRegs((recentDataRes.data as any) || [])
-      }
+      // Batch 2: Data queries — only what's displayed
+      const [recentDataRes, programsDataRes] = await Promise.all([
+        supabase
+          .from('registrations')
+          .select('id, status, created_at, program:programs(id, title), user:users(id, name, nim)')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        // Use aggregate join: count per status from programs
+        supabase
+          .from('programs')
+          .select('id, title, price, registrations(status)')
+          .order('created_at', { ascending: false })
+      ])
+
+      if (!isMounted.current) return
+
+      const programsData: any[] = programsDataRes.data || []
+      const reports = programsData.map(p => {
+        const regs: any[] = p.registrations || []
+        const approvedCount = regs.filter((r: any) => r.status === 'approved').length
+        return {
+          id: p.id,
+          title: p.title,
+          registeredCount: regs.length,
+          revenue: approvedCount * (p.price || 0)
+        }
+      }).sort((a, b) => b.revenue - a.revenue)
+
+      setProgramReports(reports)
+      setRecentRegs((recentDataRes.data as any) || [])
     } catch (err) {
       console.error('Error fetching dashboard data:', err)
     } finally {
@@ -88,14 +95,10 @@ export const useAdminStats = () => {
     fetchDashboardData()
   }, [fetchDashboardData])
 
-  return { 
-    stats, 
-    recentRegs, 
-    programReports, 
-    loading, 
-    refresh: useCallback(() => {
-      hasFetched.current = false
-      return fetchDashboardData()
-    }, [fetchDashboardData]) 
-  }
+  const refresh = useCallback(() => {
+    hasFetched.current = false
+    return fetchDashboardData()
+  }, [fetchDashboardData])
+
+  return { stats, recentRegs, programReports, loading, refresh }
 }

@@ -5,7 +5,6 @@ import {
   BookOpen,
   ClipboardList,
   LogOut,
-  GraduationCap,
   Download,
   Settings,
 } from 'lucide-react'
