@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,7 +24,6 @@ const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   const {
     register,
@@ -83,7 +82,8 @@ const RegisterPage: React.FC = () => {
       }
 
       toast.success('Akun berhasil dibuat! Selamat datang.')
-      navigate('/dashboard')
+      // ✅ No manual navigate() — onAuthStateChange(SIGNED_IN) fires in AuthContext,
+      // updates user + profile, then AuthRoute redirects to /dashboard automatically.
     }
 
     setLoading(false)

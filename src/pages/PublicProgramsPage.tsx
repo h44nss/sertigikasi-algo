@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen, GraduationCap, Calendar, ArrowRight, X, ChevronLeft, Users } from 'lucide-react'
 import Navbar from '../components/Navbar'
@@ -32,9 +32,9 @@ const PublicProgramCard = React.memo(({ program, onSelect }: { program: Program,
     <div className="flex-1">
       {program.image_url ? (
         <div className="h-48 mb-5 overflow-hidden rounded-t-xl -mt-6 -mx-6 bg-gray-100">
-          <img 
-            src={program.image_url} 
-            alt={program.title} 
+          <img
+            src={program.image_url}
+            alt={program.title}
             loading="lazy"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
@@ -121,10 +121,10 @@ const PublicProgramsPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
               {programs.map((program) => (
-                <PublicProgramCard 
-                  key={program.id} 
-                  program={program} 
-                  onSelect={handleSelect} 
+                <PublicProgramCard
+                  key={program.id}
+                  program={program}
+                  onSelect={handleSelect}
                 />
               ))}
             </div>
@@ -148,7 +148,7 @@ const PublicProgramsPage: React.FC = () => {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {selectedProgram.image_url && (
                 <div className="w-full h-64 md:h-80 mb-6 rounded-2xl overflow-hidden shadow-sm bg-gray-100">

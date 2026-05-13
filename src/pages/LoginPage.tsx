@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -18,7 +18,6 @@ type LoginForm = z.infer<typeof loginSchema>
 const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   const {
     register,
@@ -30,7 +29,7 @@ const LoginPage: React.FC = () => {
     setLoading(true)
     const email = nimToEmail(data.nim)
 
-    const { data: authData, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password: data.password,
     })
@@ -41,21 +40,11 @@ const LoginPage: React.FC = () => {
       return
     }
 
-    if (authData.user) {
-      // Fetch role to redirect properly
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', authData.user.id)
-        .single()
-
-      toast.success('Berhasil masuk!')
-      if (profile?.role === 'admin') {
-        navigate('/admin')
-      } else {
-        navigate('/dashboard')
-      }
-    }
+    // ✅ No manual navigation here.
+    // onAuthStateChange(SIGNED_IN) fires in AuthContext → updates user + profile.
+    // AuthRoute then detects the auth state and redirects to /admin or /dashboard.
+    toast.success('Berhasil masuk!')
+    // loading stays true briefly while AuthContext updates — prevents double-submit
     setLoading(false)
   }
 
