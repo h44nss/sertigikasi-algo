@@ -111,7 +111,7 @@ const LandingPage: React.FC = () => {
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6 animate-slide-up">
               Raih Sertifikat{' '}
-              <span style={{ color: '#00255a' }}>Resmi Kampus</span>{' '}
+              <span style={{ color: '#3d85ebff' }}>Resmi Kampus</span>{' '}
               dengan Mudah
             </h1>
             <p className="text-lg text-slate-300 leading-relaxed mb-8 max-w-xl animate-slide-up" style={{ animationDelay: '0.1s' }}>
