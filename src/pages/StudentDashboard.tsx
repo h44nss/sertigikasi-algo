@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   GraduationCap,
@@ -57,8 +57,6 @@ const StudentDashboard: React.FC = () => {
   const { profile } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const isMounted = useRef(true)
-
   const { programs, loading: loadingPrograms } = usePrograms()
   const { registrations, loading: loadingRegs, refresh: refreshRegs } = useRegistrations()
 
@@ -66,10 +64,6 @@ const StudentDashboard: React.FC = () => {
   const [paymentProgram, setPaymentProgram] = useState<Program | null>(null)
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
 
-  useEffect(() => {
-    isMounted.current = true
-    return () => { isMounted.current = false }
-  }, [])
 
   const loading = loadingPrograms || loadingRegs
 
@@ -132,12 +126,12 @@ const StudentDashboard: React.FC = () => {
       if (error) throw error
 
       toast.success('Berhasil mendaftar program')
-      await refreshRegs()
+      refreshRegs()
     } catch (err) {
       toast.error('Gagal mendaftar program')
       console.error(err)
     } finally {
-      if (isMounted.current) setRegistering(null)
+      setRegistering(null)
     }
   }
 
@@ -159,7 +153,7 @@ const StudentDashboard: React.FC = () => {
   const handlePaymentSuccess = async () => {
     if (!paymentProgram) return
     await executeRegistration(paymentProgram.id, 'paid')
-    if (isMounted.current) setPaymentProgram(null)
+    setPaymentProgram(null)
   }
 
   return (

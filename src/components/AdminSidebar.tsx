@@ -9,6 +9,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import AvatarImage from './AvatarImage'
 import toast from 'react-hot-toast'
 import logo from '../assets/logo.png'
 
@@ -83,9 +84,7 @@ const AdminSidebar: React.FC = () => {
         {profile && (
           <div className="bg-gray-50 rounded-xl p-3 mb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-white">{profile.name.charAt(0).toUpperCase()}</span>
-              </div>
+              <AvatarImage src={profile.avatar_url} name={profile.name} size="md" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">{profile.name}</p>
                 <p className="text-xs text-gray-400">NIM: {profile.nim}</p>

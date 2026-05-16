@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, X, LogOut, LayoutDashboard, FileText, User, ChevronDown } from 'lucide-react'
 import logo from '../assets/logo.png'
 import { useAuth } from '../contexts/AuthContext'
+import AvatarImage from './AvatarImage'
 import toast from 'react-hot-toast'
 
 const Navbar: React.FC = () => {
@@ -97,9 +98,7 @@ const Navbar: React.FC = () => {
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2 transition-colors"
                 >
-                  <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
-                  </div>
+                  <AvatarImage src={profile.avatar_url} name={profile.name} size="sm" />
                   <span className="text-sm font-medium text-gray-700">{profile.name}</span>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
                 </button>

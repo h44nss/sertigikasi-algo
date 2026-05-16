@@ -1,78 +1,55 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Program } from '../types'
 
-// Module-level cache: persists across component mounts within same session
-let cachedPrograms: Program[] | null = null
-let isFetching = false
-const listeners: Array<() => void> = []
+export const usePrograms = () => {
+  const [programs, setPrograms] = useState<Program[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-const notifyListeners = () => listeners.forEach(fn => fn())
+  const fetchPrograms = useCallback(async () => {
+    setLoading(true)
+    setError(null)
 
-const fetchFromDB = async () => {
-  if (isFetching) return
-  isFetching = true
-
-  try {
-    const { data, error } = await supabase
+    const { data, error: err } = await supabase
       .from('programs')
-      .select('id, title, description, date, venue, price, image_url, quota, registration_deadline, registrations(count)')
+      .select('id, title, description, date, venue, price, image_url, quota, registration_deadline, created_at')
       .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (err) {
+      console.error('[usePrograms] error:', err.message)
+      setError(err.message)
+      setLoading(false)
+      return
+    }
 
-    cachedPrograms = (data || []).map(p => ({
-      ...p,
-      registered_count: (p.registrations as any)?.[0]?.count || 0,
-      registrations: undefined,
-    })) as Program[]
-  } catch (err) {
-    console.error('Error fetching programs:', err)
-    cachedPrograms = []
-  } finally {
-    isFetching = false
-    notifyListeners()
-  }
-}
-
-export const usePrograms = () => {
-  const [programs, setPrograms] = useState<Program[]>(cachedPrograms || [])
-  const [loading, setLoading] = useState(!cachedPrograms)
-  const isMounted = useRef(true)
+    setPrograms(data ?? [])
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
-    isMounted.current = true
+    let cancelled = false
 
-    // Subscribe to cache updates
-    const listener = () => {
-      if (isMounted.current) {
-        setPrograms(cachedPrograms || [])
+    setLoading(true)
+    setError(null)
+
+    supabase
+      .from('programs')
+      .select('id, title, description, date, venue, price, image_url, quota, registration_deadline, created_at')
+      .order('created_at', { ascending: false })
+      .then(({ data, error: err }) => {
+        if (cancelled) return
+        if (err) {
+          console.error('[usePrograms] error:', err.message)
+          setError(err.message)
+        } else {
+          setPrograms(data ?? [])
+        }
         setLoading(false)
-      }
-    }
-    listeners.push(listener)
+      })
 
-    // If cache is already available, use it immediately
-    if (cachedPrograms !== null) {
-      setPrograms(cachedPrograms)
-      setLoading(false)
-    } else {
-      // Trigger fetch (deduplication via isFetching flag)
-      fetchFromDB()
-    }
-
-    return () => {
-      isMounted.current = false
-      const idx = listeners.indexOf(listener)
-      if (idx !== -1) listeners.splice(idx, 1)
-    }
+    return () => { cancelled = true }
   }, [])
 
-  const refresh = useCallback(() => {
-    cachedPrograms = null
-    if (isMounted.current) setLoading(true)
-    fetchFromDB()
-  }, [])
-
-  return { programs, loading, error: null, refresh }
+  return { programs, loading, error, refresh: fetchPrograms }
 }

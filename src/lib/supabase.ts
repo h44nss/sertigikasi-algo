@@ -12,10 +12,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-  }
+    flowType: 'pkce',
+    // IMPORTANT
+    storageKey: 'sertifikasi-kampus-auth',
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'student-app',
+    },
+  },
 })
 
-// Helper functions for NIM-based auth
+// Helper functions
 export const nimToEmail = (nim: string): string => `${nim}@kampus.com`
-export const emailToNim = (email: string): string => email.replace('@kampus.com', '')
 
+export const emailToNim = (email: string): string =>
+  email.replace('@kampus.com', '')

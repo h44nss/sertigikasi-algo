@@ -6,8 +6,10 @@ export interface UserProfile {
   nim: string
   name: string
   role: UserRole
+  avatar_url: string | null
   created_at?: string
 }
+
 
 export interface Program {
   id: string
