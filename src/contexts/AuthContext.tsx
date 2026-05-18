@@ -40,8 +40,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let cancelled = false
 
+    // Fallback timeout to prevent infinite loading if getSession hangs
+    const fallbackTimer = setTimeout(() => {
+      if (!initializedRef.current && !cancelled) {
+        console.warn('[Auth] Session fetch timeout, resolving loading state to prevent deadlock.')
+        initializedRef.current = true
+        setLoading(false)
+      }
+    }, 5000)
+
     // Step 1: Hydrate from existing session immediately
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) console.error('[Auth] getSession error:', error.message)
       if (cancelled) return
 
       const u = session?.user ?? null
@@ -52,7 +62,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!cancelled) setProfile(p)
       }
 
-      if (!cancelled) {
+      if (!cancelled && !initializedRef.current) {
+        initializedRef.current = true
+        setLoading(false)
+      }
+    }).catch(err => {
+      console.error('[Auth] getSession critical error:', err)
+      if (!cancelled && !initializedRef.current) {
         initializedRef.current = true
         setLoading(false)
       }
@@ -64,7 +80,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Skip INITIAL_SESSION — already handled by getSession() above.
       // This prevents double profile fetch on first load.
-      if (event === 'INITIAL_SESSION') return
+      if (event === 'INITIAL_SESSION') {
+        if (!initializedRef.current) {
+          initializedRef.current = true
+          setLoading(false)
+        }
+        return
+      }
 
       const u = session?.user ?? null
 
@@ -98,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       cancelled = true
+      clearTimeout(fallbackTimer)
       subscription.unsubscribe()
     }
   }, [])
