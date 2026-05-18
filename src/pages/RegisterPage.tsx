@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Eye, EyeOff, UserPlus } from 'lucide-react'
 import { supabase, nimToEmail } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.webp'
 
 const registerSchema = z.object({
   nim: z.string().min(5, 'NIM minimal 5 karakter').max(20, 'NIM maksimal 20 karakter'),

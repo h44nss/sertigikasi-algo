@@ -1,12 +1,12 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { GraduationCap, Eye, EyeOff, LogIn } from 'lucide-react'
-import { supabase, nimToEmail } from '../lib/supabase'
+import { Eye, EyeOff } from 'lucide-react'
+import React, { useState } from 'react'
+import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import logo from '../assets/logo.png'
+import { Link } from 'react-router-dom'
+import { z } from 'zod'
+import logo from '../assets/logo.webp'
+import { nimToEmail, supabase } from '../lib/supabase'
 
 const loginSchema = z.object({
   nim: z.string().min(5, 'NIM minimal 5 karakter').max(20, 'NIM maksimal 20 karakter'),
