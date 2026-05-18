@@ -88,7 +88,7 @@ const ProgramsPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('programs')
-        .select('*')
+        .select('id, title, description, date, venue, price, image_url, quota, registration_deadline, created_at')
         .order('created_at', { ascending: false })
       
       if (error) throw error

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { UserProfile } from '../types'
@@ -102,11 +102,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) return
     const p = await fetchProfileFromDB(user.id)
     setProfile(p)
-  }
+  }, [user])
 
   const signOut = async () => {
     // onAuthStateChange(SIGNED_OUT) will clear user + profile state
@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = React.useMemo(
     () => ({ user, profile, loading, signOut, refreshProfile }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, profile, loading]
+    [user, profile, loading, refreshProfile]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

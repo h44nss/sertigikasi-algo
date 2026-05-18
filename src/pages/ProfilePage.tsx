@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -52,6 +52,15 @@ const ProfilePage: React.FC = () => {
   const [ktmIsPdf, setKtmIsPdf] = useState(false)
   const [showKtmModal, setShowKtmModal] = useState(false)
   const ktmInputRef = useRef<HTMLInputElement>(null)
+
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => { if (avatarPreview) URL.revokeObjectURL(avatarPreview) }
+  }, [avatarPreview])
+
+  useEffect(() => {
+    return () => { if (ktmPreview) URL.revokeObjectURL(ktmPreview) }
+  }, [ktmPreview])
 
   const {
     register,

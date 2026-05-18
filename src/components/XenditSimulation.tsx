@@ -70,7 +70,7 @@ const XenditSimulation: React.FC<XenditSimulationProps> = ({ amount, programTitl
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-slate-900/70 z-[100] flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Xendit Header Simulation */}
         <div className="bg-[#0052FF] p-4 flex items-center justify-between text-white flex-shrink-0">

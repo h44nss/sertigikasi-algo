@@ -7,6 +7,8 @@ import {
   ClipboardList,
   X,
   GraduationCap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { Registration } from '../../types'
@@ -21,7 +23,7 @@ const formatDate = (dateStr: string) =>
     day: 'numeric', month: 'short', year: 'numeric',
   })
 
-// Memoized Registration Row
+// Memoized Registration Row — prevents re-render of every row on filter change
 const RegistrationRow = React.memo(({
   reg,
   onApprove,
@@ -101,8 +103,12 @@ const RegistrationRow = React.memo(({
 ))
 RegistrationRow.displayName = 'RegistrationRow'
 
+const PAGE_SIZE = 25
+
 const RegistrationsPage: React.FC = () => {
   const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -117,17 +123,30 @@ const RegistrationsPage: React.FC = () => {
     return () => { isMounted.current = false }
   }, [])
 
-  const fetchRegistrations = useCallback(async (showSkeleton = false) => {
-    if (showSkeleton && isMounted.current) setLoading(true)
+  const fetchRegistrations = useCallback(async (currentPage: number, currentStatus: string) => {
+    if (isMounted.current) setLoading(true)
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('registrations')
-        .select('*, program:programs(*), user:users(name, nim, id)')
+        .select('*, program:programs(id, title), user:users(name, nim, id)', { count: 'exact' })
         .order('created_at', { ascending: false })
 
+      if (currentStatus !== 'all') {
+        query = query.eq('status', currentStatus)
+      }
+
+      const from = currentPage * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      query = query.range(from, to)
+
+      const { data, error, count } = await query
+
       if (error) throw error
-      if (isMounted.current) setRegistrations(data || [])
+      if (isMounted.current) {
+        setRegistrations(data || [])
+        setTotalCount(count ?? 0)
+      }
     } catch (err) {
       console.error('Error fetching registrations:', err)
       toast.error('Gagal memuat pendaftaran')
@@ -136,29 +155,30 @@ const RegistrationsPage: React.FC = () => {
     }
   }, [])
 
+  // Initial load
   useEffect(() => {
-    fetchRegistrations(true)
+    fetchRegistrations(0, 'all')
   }, [fetchRegistrations])
 
+  // Re-fetch when status filter or page changes
+  useEffect(() => {
+    fetchRegistrations(page, statusFilter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, statusFilter])
+
+  // Client-side search filter (only on the current page in memory)
   const filtered = useMemo(() => {
-    let result = registrations
+    if (!search) return registrations
     const searchLower = search.toLowerCase()
+    return registrations.filter(
+      (r) =>
+        r.user?.name.toLowerCase().includes(searchLower) ||
+        r.user?.nim.includes(searchLower) ||
+        r.program?.title.toLowerCase().includes(searchLower)
+    )
+  }, [registrations, search])
 
-    if (searchLower) {
-      result = result.filter(
-        (r) =>
-          r.user?.name.toLowerCase().includes(searchLower) ||
-          r.user?.nim.includes(searchLower) ||
-          r.program?.title.toLowerCase().includes(searchLower)
-      )
-    }
-
-    if (statusFilter !== 'all') {
-      result = result.filter((r) => r.status === statusFilter)
-    }
-
-    return result
-  }, [registrations, search, statusFilter])
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
   const handleApprove = useCallback(async (reg: Registration) => {
     if (processing) return
@@ -279,7 +299,7 @@ const RegistrationsPage: React.FC = () => {
             </div>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
               className="input-field sm:w-44 bg-white"
             >
               <option value="all">Semua Status</option>
@@ -327,6 +347,31 @@ const RegistrationsPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                Halaman {page + 1} dari {totalPages} · {totalCount} total pendaftaran
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0 || loading}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Sebelumnya
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1 || loading}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Berikutnya <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
