@@ -19,8 +19,8 @@ import type { Program } from '../types'
 import { CardSkeleton } from '../components/Skeleton'
 import Navbar from '../components/Navbar'
 import toast from 'react-hot-toast'
-import footerr from '../assets/footerr.png';
-import heroBg from '../assets/hero-bg.png'
+import footerr from '../assets/footerr.webp';
+import heroBg from '../assets/hero-bg.webp'
 
 // Externalized helpers
 const formatDate = (dateStr: string) => {

@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import AvatarImage from './AvatarImage'
 import toast from 'react-hot-toast'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.webp'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -60,11 +60,10 @@ const AdminSidebar: React.FC = () => {
                 <li key={item.path}>
                   <Link
                     to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      active
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${active
                         ? 'bg-blue-50 text-blue-600'
                         : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     <Icon className={`w-4.5 h-4.5 ${active ? 'text-blue-600' : 'text-gray-400'}`} style={{ width: '18px', height: '18px' }} />
                     {item.label}

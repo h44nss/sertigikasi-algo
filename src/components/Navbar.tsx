@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, X, LogOut, LayoutDashboard, FileText, User, ChevronDown } from 'lucide-react'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.webp'
 import { useAuth } from '../contexts/AuthContext'
 import AvatarImage from './AvatarImage'
 import toast from 'react-hot-toast'
